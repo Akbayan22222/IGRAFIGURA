@@ -13,6 +13,18 @@
       font-family: Arial, sans-serif;
     }
 
+    video {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      object-fit: cover;
+      z-index: 2;
+      opacity: 0.3;
+      pointer-events: none;
+    }
+
     #hud {
       position: absolute;
       inset: 0;
@@ -42,6 +54,8 @@
   </style>
 </head>
 <body>
+  <video id="video" autoplay playsinline muted></video>
+
   <div id="hud">
     <div id="title">POSE WALL GAME</div>
     <div id="status">Ожидание старта...</div>
@@ -123,6 +137,28 @@
       camera.updateProjectionMatrix();
       renderer.setSize(window.innerWidth, window.innerHeight);
     });
+
+    const video = document.getElementById('video');
+    const status = document.getElementById('status');
+
+    async function startCamera() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: 'user'
+          },
+          audio: false
+        });
+
+        video.srcObject = stream;
+        status.textContent = 'Камера работает';
+      } catch (e) {
+        console.error(e);
+        status.textContent = 'Ошибка камеры: ' + e.message;
+      }
+    }
+
+    startCamera();
   </script>
 </body>
 </html>
