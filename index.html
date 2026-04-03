@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pose Wall Game</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      background: #050816;
+      font-family: Arial, sans-serif;
+    }
+
+    #hud {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 5;
+    }
+
+    #title {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      color: white;
+      font-size: 28px;
+      font-weight: bold;
+    }
+
+    #status {
+      position: absolute;
+      bottom: 20px;
+      left: 20px;
+      color: white;
+      font-size: 22px;
+      background: rgba(0,0,0,0.4);
+      padding: 10px 16px;
+      border-radius: 12px;
+    }
+  </style>
+</head>
+<body>
+  <div id="hud">
+    <div id="title">POSE WALL GAME</div>
+    <div id="status">Ожидание старта...</div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+  <script>
+    const scene = new THREE.Scene();
+
+    const camera = new THREE.PerspectiveCamera(
+      75,
+      window.innerWidth / window.innerHeight,
+      0.1,
+      1000
+    );
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.body.appendChild(renderer.domElement);
+
+    camera.position.z = 5;
+
+    const frames = [];
+
+    for (let i = 0; i < 20; i++) {
+      const geometry = new THREE.BoxGeometry(8, 5, 0.2);
+      const material = new THREE.MeshBasicMaterial({
+        color: 0x00ffff,
+        wireframe: true
+      });
+
+      const frame = new THREE.Mesh(geometry, material);
+      frame.position.z = -i * 5;
+      scene.add(frame);
+      frames.push(frame);
+    }
+
+    const texture = new THREE.TextureLoader().load('pose1.png');
+    const wallMaterial = new THREE.MeshBasicMaterial({
+      map: texture,
+      transparent: true
+    });
+
+    const wall = new THREE.Mesh(
+      new THREE.PlaneGeometry(6, 4),
+      wallMaterial
+    );
+
+    wall.position.z = -50;
+    scene.add(wall);
+
+    let started = true;
+
+    function animate() {
+      requestAnimationFrame(animate);
+
+      if (started) {
+        frames.forEach(frame => {
+          frame.position.z += 0.3;
+          if (frame.position.z > 5) {
+            frame.position.z = -100;
+          }
+        });
+
+        wall.position.z += 0.5;
+        if (wall.position.z > 5) {
+          wall.position.z = -50;
+        }
+      }
+
+      renderer.render(scene, camera);
+    }
+
+    animate();
+
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+  </script>
+</body>
+</html>
