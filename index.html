@@ -1,168 +1,56 @@
 <!DOCTYPE html>
-<html lang="ru">
-<head>
-    <meta charset="UTF-8">
-    <title>Neon AR Game</title>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <style><!DOCTYPE html>
 <html>
 <head>
-    <title>Wall Game - Projector</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <title>Wall Game - Camera</title>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils"></script>
     <script src="https://unpkg.com/peerjs@1.3.1/dist/peerjs.min.js"></script>
     <style>
-        body { margin: 0; background: #000; overflow: hidden; font-family: sans-serif; }
-        #ui { position: absolute; top: 20px; width: 100%; text-align: center; color: #0ff; font-size: 40px; text-shadow: 0 0 20px #0ff; }
-        #peer-info { position: absolute; bottom: 20px; width: 100%; text-align: center; color: #444; font-size: 18px; }
-        #my-id { color: #f0f; font-weight: bold; border: 1px solid #f0f; padding: 5px 10px; }
+        body { background: #111; color: #0ff; text-align: center; font-family: sans-serif; padding-top: 50px; }
+        input { padding: 15px; font-size: 18px; width: 80%; margin-bottom: 20px; border: 1px solid #0ff; background: #000; color: #0ff; }
+        button { padding: 15px 30px; font-size: 18px; background: #0ff; color: #000; border: none; font-weight: bold; }
+        #video_preview { width: 90%; border: 2px solid #333; margin-top: 20px; transform: scaleX(1); }
     </style>
 </head>
 <body>
-    <div id="ui">ДИСТАНЦИЯ: <span id="dist">0</span>m</div>
-    <div id="peer-info">Введите этот ID на телефоне: <span id="my-id">ожидание...</span></div>
+    <h2>КОНТРОЛЛЕР</h2>
+    <input type="text" id="target-id" placeholder="ID с экрана ноутбука">
+    <br>
+    <button onclick="connect()">ПОДКЛЮЧИТЬ КАМЕРУ</button>
+    <video id="video_preview"></video>
 
     <script>
-        const scene = new THREE.Scene();
-        const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
-        const renderer = new THREE.WebGLRenderer({ antialias: true });
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        document.body.appendChild(renderer.domElement);
-
-        // Игрок (Неоновый шар)
-        const player = new THREE.Mesh(
-            new THREE.SphereGeometry(0.5, 32, 32), 
-            new THREE.MeshBasicMaterial({color: 0x00ff00})
-        );
-        scene.add(player);
-
-        // Стена (Сетка)
-        const wall = new THREE.Mesh(
-            new THREE.BoxGeometry(12, 12, 0.2), 
-            new THREE.MeshBasicMaterial({color: 0xff00ff, wireframe: true})
-        );
-        scene.add(wall);
-        wall.position.z = -20;
-
-        camera.position.set(0, 1.5, 5);
-
-        // СВЯЗЬ
         const peer = new Peer();
-        peer.on('open', id => document.getElementById('my-id').innerText = id);
-        
-        peer.on('connection', conn => {
-            conn.on('data', data => {
-                // Принимаем координаты x и y от телефона
-                player.position.x = data.x;
-                player.position.y = data.y;
-            });
+        let conn;
+        const videoElement = document.getElementById('video_preview');
+
+        function connect() {
+            const id = document.getElementById('target-id').value;
+            conn = peer.connect(id);
+            alert("Связь установлена! Используется задняя камера.");
+        }
+
+        const pose = new Pose({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`});
+        pose.setOptions({ modelComplexity: 1, minDetectionConfidence: 0.5 });
+
+        pose.onResults(results => {
+            if (results.poseLandmarks && conn && conn.open) {
+                const nose = results.poseLandmarks[0];
+                // Отправляем координаты (инвертируем X, так как камера сзади)
+                conn.send({
+                    x: (nose.x - 0.5) * 12,
+                    y: (0.5 - nose.y) * 10
+                });
+            }
         });
 
-        let distance = 0;
-        function animate() {
-            requestAnimationFrame(animate);
-            wall.position.z += 0.15;
-            distance += 0.1;
-            document.getElementById('dist').innerText = Math.floor(distance);
-
-            if (wall.position.z > 5) wall.position.z = -25;
-            renderer.render(scene, camera);
-        }
-        animate();
-    </script>
-</body>
-</html>
-        body { margin: 0; background: #000; overflow: hidden; font-family: sans-serif; }
-        canvas { display: block; }
-        #startUI { position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
-                   background: rgba(0,0,0,0.8); display: flex; flex-direction: column; 
-                   justify-content: center; align-items: center; z-index: 10; }
-        button { padding: 15px 40px; font-size: 24px; color: #0ff; border: 2px solid #0ff; 
-                 background: none; cursor: pointer; box-shadow: 0 0 15px #0ff; }
-        #hud { position: absolute; top: 20px; width: 100%; text-align: center; color: #f0f; font-size: 30px; display: none; }
-    </style>
-</head>
-<body>
-
-    <div id="startUI">
-        <h1 style="color: #0ff; text-shadow: 0 0 10px #0ff;">NEON WALL AR</h1>
-        <button onclick="startApp()">ИГРАТЬ</button>
-    </div>
-
-    <div id="hud">ДИСТАНЦИЯ: <span id="meters">0</span>m</div>
-    <video id="input_video" style="display:none;"></video>
-
-    <script>
-        let scene, camera, renderer, wall, player;
-        let score = 0;
-
-        function startApp() {
-            document.getElementById('startUI').style.display = 'none';
-            document.getElementById('hud').style.display = 'block';
-            initGame();
-        }
-
-        function initGame() {
-            // 1. Создаем 3D мир
-            scene = new THREE.Scene();
-            camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
-            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-            renderer.setSize(window.innerWidth, window.innerHeight);
-            document.body.appendChild(renderer.domElement);
-
-            // 2. Создаем "Стеклянный шаблон" (Стена)
-            const wallGeo = new THREE.BoxGeometry(10, 10, 0.2);
-            const wallMat = new THREE.MeshBasicMaterial({ 
-                color: 0x00ffff, transparent: true, opacity: 0.4, wireframe: true 
-            });
-            wall = new THREE.Mesh(wallGeo, wallMat);
-            scene.add(wall);
-            wall.position.z = -20;
-
-            // 3. Создаем Игрока (Светящийся шар вместо головы для простоты)
-            const playerGeo = new THREE.SphereGeometry(0.5, 32, 32);
-            const playerMat = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
-            player = new THREE.Mesh(playerGeo, playerMat);
-            scene.add(player);
-
-            camera.position.z = 5;
-
-            // 4. Подключаем Камеру и "Мозги" (MediaPipe)
-            const videoElement = document.getElementById('input_video');
-            const pose = new Pose({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`});
-            
-            pose.onResults((results) => {
-                if (results.poseLandmarks) {
-                    // Двигаем шар за твоей головой!
-                    const nose = results.poseLandmarks[0];
-                    player.position.x = (0.5 - nose.x) * 10;
-                    player.position.y = (0.5 - nose.y) * 10;
-                }
-            });
-
-            const cameraHelper = new Camera(videoElement, {
-                onFrame: async () => { await pose.send({image: videoElement}); },
-                width: 640, height: 480
-            });
-            cameraHelper.start();
-
-            animate();
-        }
-
-        function animate() {
-            requestAnimationFrame(animate);
-            
-            // Стена летит на тебя!
-            wall.position.z += 0.1;
-            if (wall.position.z > 5) {
-                wall.position.z = -20;
-                score += 10;
-                document.getElementById('meters').innerText = score;
-            }
-
-            renderer.render(scene, camera);
-        }
+        // ВКЛЮЧАЕМ ИМЕННО ЗАДНЮЮ КАМЕРУ (environment)
+        const camera = new Camera(videoElement, {
+            onFrame: async () => { await pose.send({image: videoElement}); },
+            width: 640, height: 480,
+            facingMode: "environment" 
+        });
+        camera.start();
     </script>
 </body>
 </html>
