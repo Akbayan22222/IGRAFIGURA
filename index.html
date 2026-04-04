@@ -1,164 +1,102 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Pose Wall Game</title>
-  <style>
-    html, body {
-      margin: 0;
-      padding: 0;
-      overflow: hidden;
-      background: #050816;
-      font-family: Arial, sans-serif;
-    }
-
-    video {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100vw;
-      height: 100vh;
-      object-fit: cover;
-      z-index: 2;
-      opacity: 0.3;
-      pointer-events: none;
-    }
-
-    #hud {
-      position: absolute;
-      inset: 0;
-      pointer-events: none;
-      z-index: 5;
-    }
-
-    #title {
-      position: absolute;
-      top: 20px;
-      left: 20px;
-      color: white;
-      font-size: 28px;
-      font-weight: bold;
-    }
-
-    #status {
-      position: absolute;
-      bottom: 20px;
-      left: 20px;
-      color: white;
-      font-size: 22px;
-      background: rgba(0,0,0,0.4);
-      padding: 10px 16px;
-      border-radius: 12px;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <title>Neon AR Game</title>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        body { margin: 0; background: #000; overflow: hidden; font-family: sans-serif; }
+        canvas { display: block; }
+        #startUI { position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
+                   background: rgba(0,0,0,0.8); display: flex; flex-direction: column; 
+                   justify-content: center; align-items: center; z-index: 10; }
+        button { padding: 15px 40px; font-size: 24px; color: #0ff; border: 2px solid #0ff; 
+                 background: none; cursor: pointer; box-shadow: 0 0 15px #0ff; }
+        #hud { position: absolute; top: 20px; width: 100%; text-align: center; color: #f0f; font-size: 30px; display: none; }
+    </style>
 </head>
 <body>
-  <video id="video" autoplay playsinline muted></video>
 
-  <div id="hud">
-    <div id="title">POSE WALL GAME</div>
-    <div id="status">Ожидание старта...</div>
-  </div>
+    <div id="startUI">
+        <h1 style="color: #0ff; text-shadow: 0 0 10px #0ff;">NEON WALL AR</h1>
+        <button onclick="startApp()">ИГРАТЬ</button>
+    </div>
 
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <div id="hud">ДИСТАНЦИЯ: <span id="meters">0</span>m</div>
+    <video id="input_video" style="display:none;"></video>
 
-  <script>
-    const scene = new THREE.Scene();
+    <script>
+        let scene, camera, renderer, wall, player;
+        let score = 0;
 
-    const camera = new THREE.PerspectiveCamera(
-      75,
-      window.innerWidth / window.innerHeight,
-      0.1,
-      1000
-    );
-
-    const renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    document.body.appendChild(renderer.domElement);
-
-    camera.position.z = 5;
-
-    const frames = [];
-
-    for (let i = 0; i < 20; i++) {
-      const geometry = new THREE.BoxGeometry(8, 5, 0.2);
-      const material = new THREE.MeshBasicMaterial({
-        color: 0x00ffff,
-        wireframe: true
-      });
-
-      const frame = new THREE.Mesh(geometry, material);
-      frame.position.z = -i * 5;
-      scene.add(frame);
-      frames.push(frame);
-    }
-
-    const texture = new THREE.TextureLoader().load('pose1.png');
-    const wallMaterial = new THREE.MeshBasicMaterial({
-      map: texture,
-      transparent: true
-    });
-
-    const wall = new THREE.Mesh(
-      new THREE.PlaneGeometry(6, 4),
-      wallMaterial
-    );
-
-    wall.position.z = -50;
-    scene.add(wall);
-
-    let started = true;
-
-    function animate() {
-      requestAnimationFrame(animate);
-
-      if (started) {
-        frames.forEach(frame => {
-          frame.position.z += 0.3;
-          if (frame.position.z > 5) {
-            frame.position.z = -100;
-          }
-        });
-
-        wall.position.z += 0.5;
-        if (wall.position.z > 5) {
-          wall.position.z = -50;
+        function startApp() {
+            document.getElementById('startUI').style.display = 'none';
+            document.getElementById('hud').style.display = 'block';
+            initGame();
         }
-      }
 
-      renderer.render(scene, camera);
-    }
+        function initGame() {
+            // 1. Создаем 3D мир
+            scene = new THREE.Scene();
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            document.body.appendChild(renderer.domElement);
 
-    animate();
+            // 2. Создаем "Стеклянный шаблон" (Стена)
+            const wallGeo = new THREE.BoxGeometry(10, 10, 0.2);
+            const wallMat = new THREE.MeshBasicMaterial({ 
+                color: 0x00ffff, transparent: true, opacity: 0.4, wireframe: true 
+            });
+            wall = new THREE.Mesh(wallGeo, wallMat);
+            scene.add(wall);
+            wall.position.z = -20;
 
-    window.addEventListener('resize', () => {
-      camera.aspect = window.innerWidth / window.innerHeight;
-      camera.updateProjectionMatrix();
-      renderer.setSize(window.innerWidth, window.innerHeight);
-    });
+            // 3. Создаем Игрока (Светящийся шар вместо головы для простоты)
+            const playerGeo = new THREE.SphereGeometry(0.5, 32, 32);
+            const playerMat = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+            player = new THREE.Mesh(playerGeo, playerMat);
+            scene.add(player);
 
-    const video = document.getElementById('video');
-    const status = document.getElementById('status');
+            camera.position.z = 5;
 
-    async function startCamera() {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: {
-            facingMode: 'user'
-          },
-          audio: false
-        });
+            // 4. Подключаем Камеру и "Мозги" (MediaPipe)
+            const videoElement = document.getElementById('input_video');
+            const pose = new Pose({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`});
+            
+            pose.onResults((results) => {
+                if (results.poseLandmarks) {
+                    // Двигаем шар за твоей головой!
+                    const nose = results.poseLandmarks[0];
+                    player.position.x = (0.5 - nose.x) * 10;
+                    player.position.y = (0.5 - nose.y) * 10;
+                }
+            });
 
-        video.srcObject = stream;
-        status.textContent = 'Камера работает';
-      } catch (e) {
-        console.error(e);
-        status.textContent = 'Ошибка камеры: ' + e.message;
-      }
-    }
+            const cameraHelper = new Camera(videoElement, {
+                onFrame: async () => { await pose.send({image: videoElement}); },
+                width: 640, height: 480
+            });
+            cameraHelper.start();
 
-    startCamera();
-  </script>
+            animate();
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            // Стена летит на тебя!
+            wall.position.z += 0.1;
+            if (wall.position.z > 5) {
+                wall.position.z = -20;
+                score += 10;
+                document.getElementById('meters').innerText = score;
+            }
+
+            renderer.render(scene, camera);
+        }
+    </script>
 </body>
 </html>
